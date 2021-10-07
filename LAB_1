@@ -1,0 +1,209 @@
+/* 
+ * File:   main.c
+ * Author: Timothy Stronach
+ * ID: 1581380
+ * Created on September 23, 2021, 9:35 AM
+ */
+
+#include <stdio.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <avr/io.h>
+#include <util/delay.h>
+
+#define F_CPU 1000000UL  
+
+/*GLOBALS*/
+
+//Input vector, can be as long as needed
+int code[6] = {0,0,0,0,0,0};
+//Key to unlock
+int key[6] = {1,2,3,1,2,3};
+//Button counter
+int buttons_pressed = 0;
+//Length of code
+int length = sizeof(key)/sizeof(key[0]);
+
+
+int main() {
+    
+  
+    /******FUNCTIONS USED******/
+    void input();
+    void lock();
+    void PASS_TONE();
+    void UP_TONE();
+    void DOWN_TONE();
+    void scramble_code();
+    bool check_code();
+    bool button_pressed();
+    
+  
+   /*********OUTPUTS***********/ 
+    
+    //BUZZER
+    DDRB |= (1 << DDB0);
+    PORTB |= (1 << PORTB0);
+    //LED
+    DDRB |= (1 << DDB1);
+    PORTB &= ~(1 << PORTB1);
+        
+    /*********INPUTS**********/ 
+
+    //SW1
+    DDRB &= ~(1 << DDB2);
+    PORTB |= (1 << PORTB2);
+    //SW2
+    DDRB &= ~(1 << DDB3);
+    PORTB |= (1 << PORTB3);
+    //SW3
+    DDRB &= ~(1 << DDB4);
+    PORTB |= (1 << PORTB4);
+      
+    /*MAIN BODY OF CODE*/
+    while (1) {
+        //if A button is pressed, this function interrupts the loop
+        if(button_pressed()){
+            input();
+            
+            
+            
+            //If a the total number of buttons has been pressed, check the code
+            if(buttons_pressed == length){
+                    _delay_ms(500);
+                    if(check_code()){
+                        
+                        //welcome tone
+                        DOWN_TONE();
+                        _delay_ms(200);
+                        UP_TONE();
+                        _delay_ms(200);
+                       //LED on 
+                        PINB |= (1<<PORTB1);
+                        
+                        lock();
+                       
+                    }
+                     //If the code is wrong, it plays the "incorrect" tone   
+                    else{
+                        UP_TONE();
+                        _delay_ms(200);
+                        DOWN_TONE();
+                        _delay_ms(200);
+                        scramble_code();
+                        buttons_pressed = 0;
+                    }        
+            }  
+        }
+        //If no button is pressed, wait 0.2 seconds, then check again
+        else{
+            _delay_ms(200);
+            
+        }      
+    }
+}
+
+
+/*The Lower tone*/
+void DOWN_TONE(){
+    int a = 0;
+    
+    while(a < 50){
+    PORTB |= (1<< PORTB0);
+    _delay_ms(4);
+    PORTB &= ~(1<< PORTB0);
+    a++;
+    }
+
+}
+
+
+/*The higher tone*/
+void UP_TONE(){
+    int a =0;  
+    while(a <100){
+    
+    PORTB |= (1<< PORTB0);
+    _delay_ms(1);
+    PORTB &= ~(1<< PORTB0);
+      
+    a++;
+    }
+}
+
+
+/*If a button is pressed, a signal of one will be returned to the if statement*/
+bool button_pressed(){
+    if (!(PINB & (1 << PORTB2))|(!(PINB & (1 << PORTB3)))|(!(PINB & (1 << PORTB4)))) {
+
+        return(1);
+        }
+    
+    }
+
+
+/*Based on the button pressed, its corresponding number number will be added to the code vector*/
+void input(){
+    
+    if (!(PINB & (1 << PORTB2))) {
+        code[buttons_pressed] = 1;
+        ++buttons_pressed;
+        _delay_ms(40);
+        DOWN_TONE();
+         
+    }
+    
+    if (!(PINB & (1 << PORTB3))) {  
+        code[buttons_pressed] = 2;
+        buttons_pressed++;
+        _delay_ms(40);
+        DOWN_TONE();
+    }
+    
+    if (!(PINB & (1 << PORTB4))) {
+        code[buttons_pressed] = 3;
+        buttons_pressed++;
+        _delay_ms(40);
+        DOWN_TONE();
+        } 
+    
+    else{
+        _delay_ms(40);
+    }
+
+}
+
+
+/*Compares the key to the code entered*/
+bool check_code(){
+for(int i = 0; i < length; i++ ){
+            if(code[i] != key[i]){
+                return 0;
+                }
+            } 
+return 1;
+    }            
+
+
+/*scrambles the code after it has been locked*/
+void scramble_code(){
+
+for(int i = 0; i < length; i++ ){
+            code[i] = 0;
+            } 
+}
+
+
+/*Locks the combination lock after the code has been correctly entered*/
+void lock(){
+     
+    while(!button_pressed()){
+        _delay_ms(200);                
+        }
+    
+        PINB |= (1<<PORTB1);
+        buttons_pressed = 0;
+        scramble_code();
+        _delay_ms(500);
+     
+}
